@@ -3,11 +3,9 @@ extern crate hyper;
 
 use std::thread::spawn;
 use std::env::var;
-use std::io::{Result,Read};
+use std::io;
 use std::fs::File;
 use std::path::{Path,PathBuf};
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{Sender, Receiver, channel};
 use telegram_bot::{Api, MessageType, ListeningMethod, ListeningAction};
 use hyper::Url;
 use hyper::method::Method;
@@ -17,7 +15,7 @@ const ENV_TOKEN: &'static str = "BOT_TOKEN";
 const ENV_DOWNLOAD_DIR: &'static str = "DOWNLOAD_DIR";
 const ENV_BASE_URL: &'static str = "BASE_URL";
 
-fn download_file(download_dir: &Path, baseurl: &Url, url: &Url) -> Result<Url> {
+fn download_file(download_dir: &Path, baseurl: &Url, url: &Url) -> io::Result<Url> {
     // Create a request to download the file
     let req = Request::new(Method::Get, url.clone()).unwrap();
     let mut resp = req.start().unwrap().send().unwrap();
@@ -69,7 +67,7 @@ fn main() {
                         if let Some(path) = file.file_path {
                             let tg_url = Url::parse(&api.get_file_url(&path)).unwrap();
                             let local_url = download_file(&download_dir, &base_url, &tg_url).unwrap();
-                            let message = api.send_message(
+                            let _ = api.send_message(
                                 m.chat.id(),
                                 format!("This link will work for 1 hour: {}", local_url),
                                 None, None, None, None).unwrap();
