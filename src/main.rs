@@ -63,26 +63,34 @@ fn main() {
         listener.listen(|u| {
             if let Some(m) = u.message {
                 let user = m.from;
-                match m.msg {
-                    MessageType::Text(txt) => { println!("{} sent message \"{}\"", user.first_name, txt); }
+                let file_id = match m.msg {
                     MessageType::Photo(photos) => {
                         let largest_photo = photos.last().unwrap();
-                        let file = api.get_file(&largest_photo.file_id).unwrap();
-                        if let Some(path) = file.file_path {
-                            let mut download_dir_user = download_dir.clone();
-                            download_dir_user.push(user.first_name.clone());
-                            ensure_dir(&download_dir_user);
-                            let mut base_url_user = base_url.clone();
-                            base_url_user.path_mut().map(|p| p.push(user.first_name.clone()));
-                            let tg_url = Url::parse(&api.get_file_url(&path)).unwrap();
-                            let local_url = download_file(&download_dir_user, &base_url_user, &tg_url).unwrap();
-                            let _ = api.send_message(
-                                m.chat.id(),
-                                format!("This link will work for 1 hour: {}", local_url),
-                                None, None, None, None).unwrap();
-                        }
+                        Some(largest_photo.file_id.clone())
+                    },
+                    MessageType::Sticker(sticker) => Some(sticker.file_id),
+                    MessageType::Document(document) => Some(document.file_id),
+                    MessageType::Audio(audio) => Some(audio.file_id),
+                    MessageType::Video(video) => Some(video.file_id),
+                    MessageType::Voice(voice) => Some(voice.file_id),
+                    _ => None
+                };
+
+                if let Some(file_id) = file_id {
+                    let file = api.get_file(&file_id).unwrap();
+                    if let Some(path) = file.file_path {
+                        let mut download_dir_user = download_dir.clone();
+                        download_dir_user.push(user.first_name.clone());
+                        ensure_dir(&download_dir_user);
+                        let mut base_url_user = base_url.clone();
+                        base_url_user.path_mut().map(|p| p.push(user.first_name.clone()));
+                        let tg_url = Url::parse(&api.get_file_url(&path)).unwrap();
+                        let local_url = download_file(&download_dir_user, &base_url_user, &tg_url).unwrap();
+                        let _ = api.send_message(
+                            m.chat.id(),
+                            format!("This link will work for 1 hour: {}", local_url),
+                            None, None, None, None).unwrap();
                     }
-                    _ => {}
                 }
                 // if let MessageType::Text(txt) = m.msg {
                 //     println!("{:?}", txt);
