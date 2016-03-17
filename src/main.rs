@@ -37,6 +37,10 @@ fn download_file(download_dir: &Path, baseurl: &Url, url: &Url) -> io::Result<Ur
     Ok(returl)
 }
 
+fn ensure_dir(path: &Path) {
+    let _ = std::fs::create_dir(&path);
+}
+
 fn main() {
     let api = Api::from_env(ENV_TOKEN)
         .expect(&format!("Must set environment variable {}.", ENV_TOKEN));
@@ -45,8 +49,6 @@ fn main() {
         .map(|s| PathBuf::from(s))
         .expect(&format!("Must set {} to a valid path", ENV_DOWNLOAD_DIR));
 
-    let _ = std::fs::create_dir(&download_dir);
-
     let base_url = var(ENV_BASE_URL)
         .map(|s| Url::parse(&s))
         .expect(&format!("Must set {} to a valid url", ENV_BASE_URL)).unwrap();
@@ -54,6 +56,8 @@ fn main() {
     println!("getMe: {:?}", api.get_me());
 
     let mut listener = api.listener(ListeningMethod::LongPoll(None));
+
+    ensure_dir(&download_dir);
 
     let tg_listener = spawn(move || {
         listener.listen(|u| {
@@ -65,8 +69,13 @@ fn main() {
                         let largest_photo = photos.last().unwrap();
                         let file = api.get_file(&largest_photo.file_id).unwrap();
                         if let Some(path) = file.file_path {
+                            let mut download_dir_user = download_dir.clone();
+                            download_dir_user.push(user.first_name.clone());
+                            ensure_dir(&download_dir_user);
+                            let mut base_url_user = base_url.clone();
+                            base_url_user.path_mut().map(|p| p.push(user.first_name.clone()));
                             let tg_url = Url::parse(&api.get_file_url(&path)).unwrap();
-                            let local_url = download_file(&download_dir, &base_url, &tg_url).unwrap();
+                            let local_url = download_file(&download_dir_user, &base_url_user, &tg_url).unwrap();
                             let _ = api.send_message(
                                 m.chat.id(),
                                 format!("This link will work for 1 hour: {}", local_url),
