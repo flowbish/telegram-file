@@ -88,7 +88,7 @@ fn main() {
                         let local_url = download_file(&download_dir_user, &base_url_user, &tg_url).unwrap();
                         let _ = api.send_message(
                             m.chat.id(),
-                            format!("This link will work for 1 hour: {}", local_url),
+                            format!("{}", local_url),
                             None, None, None, None).unwrap();
                     }
                 }
