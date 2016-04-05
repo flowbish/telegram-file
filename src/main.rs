@@ -7,6 +7,7 @@ use std::io;
 use std::fs::File;
 use std::path::{Path,PathBuf};
 use telegram_bot::{Api, MessageType, ListeningMethod, ListeningAction};
+use telegram_bot::types::User;
 use hyper::Url;
 use hyper::method::Method;
 use hyper::client::{Request};
@@ -39,6 +40,13 @@ fn download_file(download_dir: &Path, baseurl: &Url, url: &Url) -> io::Result<Ur
 
 fn ensure_dir(path: &Path) {
     let _ = std::fs::create_dir(&path);
+}
+
+fn user_path(user: &User) -> String {
+    match user.username.clone() {
+        Some(name) => name.clone(),
+        None => "anonymous".into()
+    }
 }
 
 fn main() {
@@ -80,10 +88,11 @@ fn main() {
                     let file = api.get_file(&file_id).unwrap();
                     if let Some(path) = file.file_path {
                         let mut download_dir_user = download_dir.clone();
-                        download_dir_user.push(user.first_name.clone());
+                        let user_path = user_path(&user);
+                        download_dir_user.push(user_path.clone());
                         ensure_dir(&download_dir_user);
                         let mut base_url_user = base_url.clone();
-                        base_url_user.path_mut().map(|p| p.push(user.first_name.clone()));
+                        base_url_user.path_mut().map(|p| p.push(user_path.clone()));
                         let tg_url = Url::parse(&api.get_file_url(&path)).unwrap();
                         let local_url = download_file(&download_dir_user, &base_url_user, &tg_url).unwrap();
                         let _ = api.send_message(
