@@ -38,6 +38,16 @@ fn download_file(download_dir: &Path, baseurl: &Url, url: &Url) -> io::Result<Ur
     Ok(returl)
 }
 
+fn download_file_user(user: &User, base_download_dir: &Path, base_url: &Url, url: &Url) -> io::Result<Url> {
+    let mut download_dir_user = base_download_dir.to_path_buf();
+    let user_path = user_path(&user);
+    download_dir_user.push(user_path.clone());
+    ensure_dir(&download_dir_user);
+    let mut base_url_user = base_url.clone();
+    base_url_user.path_mut().map(|p| p.push(user_path.clone()));
+    download_file(&download_dir_user, &base_url_user, &url)
+}
+
 fn ensure_dir(path: &Path) {
     let _ = std::fs::create_dir(&path);
 }
@@ -71,7 +81,8 @@ fn main() {
         listener.listen(|u| {
             if let Some(m) = u.message {
                 let user = m.from;
-                let file_id = match m.msg {
+
+                let file_id = match m.msg.clone() {
                     MessageType::Photo(photos) => {
                         let largest_photo = photos.last().unwrap();
                         Some(largest_photo.file_id.clone())
@@ -84,26 +95,29 @@ fn main() {
                     _ => None
                 };
 
+                // Handle media (files) sent to us directly.
                 if let Some(file_id) = file_id {
                     let file = api.get_file(&file_id).unwrap();
                     if let Some(path) = file.file_path {
-                        let mut download_dir_user = download_dir.clone();
-                        let user_path = user_path(&user);
-                        download_dir_user.push(user_path.clone());
-                        ensure_dir(&download_dir_user);
-                        let mut base_url_user = base_url.clone();
-                        base_url_user.path_mut().map(|p| p.push(user_path.clone()));
                         let tg_url = Url::parse(&api.get_file_url(&path)).unwrap();
-                        let local_url = download_file(&download_dir_user, &base_url_user, &tg_url).unwrap();
+                        let client_url = download_file_user(&user, &download_dir, &base_url, &tg_url).unwrap();
                         let _ = api.send_message(
                             m.chat.id(),
-                            format!("{}", local_url),
+                            format!("{}", client_url),
                             None, None, None, None).unwrap();
                     }
                 }
-                // if let MessageType::Text(txt) = m.msg {
-                //     println!("{:?}", txt);
-                // }
+
+                // Handle URLs sent to us for rehosting.
+                 if let MessageType::Text(txt) = m.msg {
+                     if let Ok(url) = Url::parse(&txt) {
+                         let client_url = download_file_user(&user, &download_dir, &base_url, &url).unwrap();
+                         let _ = api.send_message(
+                             m.chat.id(),
+                             format!("{}", client_url),
+                             None, None, None, None).unwrap();
+                     }
+                 }
             }
             Ok(ListeningAction::Continue)
         }).unwrap();
