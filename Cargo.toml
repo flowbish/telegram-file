@@ -1,7 +1,11 @@
 [package]
-name = "rust-tgirc"
+name = "telegram-file"
 version = "0.1.0"
 authors = ["Porter Smith <flowbish@gmail.com>"]
+
+[lib]
+name = "telegram_file"
+path = "src/lib.rs"
 
 [dependencies]
 url = "^0.5.7"
